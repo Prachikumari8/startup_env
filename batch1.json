@@ -1,0 +1,32 @@
+[
+    {
+        "Seed":  1001,
+        "Score":  0.712,
+        "Outcome":  "PASS",
+        "Status":  "horizon_reached"
+    },
+    {
+        "Seed":  1002,
+        "Score":  0.632,
+        "Outcome":  "IMPROVE",
+        "Status":  "horizon_reached"
+    },
+    {
+        "Seed":  1003,
+        "Score":  0.657,
+        "Outcome":  "IMPROVE",
+        "Status":  "horizon_reached"
+    },
+    {
+        "Seed":  1004,
+        "Score":  0.635,
+        "Outcome":  "IMPROVE",
+        "Status":  "horizon_reached"
+    },
+    {
+        "Seed":  1005,
+        "Score":  0.673,
+        "Outcome":  "IMPROVE",
+        "Status":  "horizon_reached"
+    }
+]

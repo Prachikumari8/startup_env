@@ -1,0 +1,49 @@
+name: startup-operations-openenv
+display_name: Startup Operations RL Environment
+description: Real-world startup operations simulator for resource allocation, growth, and sustainability decisions.
+version: 1.0.0
+tags:
+  - openenv
+  - reinforcement-learning
+  - startup-ops
+entrypoint: main:app
+env_class: env.environment:StartupOperationsEnv
+models:
+  observation: models.state:Observation
+  action: models.action:Action
+  reward: models.reward:Reward
+actions:
+  - hire
+  - market
+  - build
+  - support
+  - idle
+observations:
+  - day
+  - money
+  - users
+  - team_size
+  - product_quality
+  - customer_satisfaction
+  - market_demand
+  - burn_rate
+  - last_action
+reward:
+  type: continuous
+  range: [0.0, 1.0]
+tasks:
+  - name: easy
+    description: Keep startup solvent while avoiding bankruptcy.
+    grader: tasks.easy:grade_easy
+  - name: medium
+    description: Scale users while preserving product quality.
+    grader: tasks.medium:grade_medium
+  - name: hard
+    description: Maximize efficiency, cash health, and satisfaction.
+    grader: tasks.hard:grade_hard
+episode:
+  max_steps: 30
+api:
+  reset: POST /reset
+  step: POST /step
+  state: GET /state
