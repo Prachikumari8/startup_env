@@ -18,5 +18,11 @@ dependencies = [
   "openenv"
 ]
 
+[project.scripts]
+server = "server.app:main"
+
 [tool.setuptools]
 py-modules = ["main", "inference"]
+
+[tool.setuptools.packages.find]
+include = ["env*", "models*", "tasks*", "agents*", "server*"]
