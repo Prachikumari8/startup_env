@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "startup-operations-openenv"
+version = "1.0.0"
+description = "Startup Operations OpenEnv environment"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "pydantic==2.8.2",
+  "openai==1.51.2",
+  "fastapi==0.115.0",
+  "uvicorn==0.30.6",
+  "python-dotenv==1.0.1",
+  "httpx==0.27.2",
+  "openenv"
+]
+
+[project.scripts]
+server = "server.app:main"
+
+[tool.setuptools]
+py-modules = ["main", "inference"]
+
+[tool.setuptools.packages.find]
+include = ["env*", "models*", "tasks*", "agents*", "server*"]
