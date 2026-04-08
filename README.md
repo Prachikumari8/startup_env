@@ -1,3 +1,13 @@
+---
+title: startup-operations-openenv
+emoji: 🚀
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Startup Operations OpenEnv
 
 A complete, real-world OpenEnv environment that simulates startup operations: budget allocation, hiring, product development, growth, and support quality under realistic constraints.
