@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-from tasks.common import clamp01, require_valid_final_state
+from tasks.common import clamp01, clamp_strict, require_valid_final_state
 
 
 def grade_hard(state: Dict[str, float]) -> float:
@@ -24,5 +24,5 @@ def grade_hard(state: Dict[str, float]) -> float:
         + (0.15 * execution_score)
     )
 
-    score = clamp01((0.55 * base) - 0.05)
+    score = clamp_strict((0.55 * base) - 0.05)
     return round(score, 6)

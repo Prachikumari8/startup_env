@@ -10,6 +10,11 @@ def clamp01(value: float) -> float:
     return max(0.0, min(float(value), 1.0))
 
 
+def clamp_strict(value: float) -> float:
+    """Clamps a value to be strictly between 0 and 1 (exclusive)."""
+    return max(0.0001, min(float(value), 0.9999))
+
+
 def require_valid_final_state(state: Dict[str, float]) -> None:
     required = {
         "money",

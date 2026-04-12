@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-from tasks.common import clamp01, require_valid_final_state
+from tasks.common import clamp01, clamp_strict, require_valid_final_state
 
 
 def grade_medium(state: Dict[str, float]) -> float:
@@ -19,5 +19,5 @@ def grade_medium(state: Dict[str, float]) -> float:
     balance_penalty = abs(growth_score - quality_score)
 
     base = (0.45 * growth_score) + (0.30 * quality_score) + (0.15 * economics_score) + (0.10 * satisfaction)
-    score = clamp01((0.60 * base) + 0.23 - (0.08 * balance_penalty))
+    score = clamp_strict((0.60 * base) + 0.23 - (0.08 * balance_penalty))
     return round(score, 6)

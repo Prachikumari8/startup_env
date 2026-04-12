@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-from tasks.common import clamp01, require_valid_final_state
+from tasks.common import clamp01, clamp_strict, require_valid_final_state
 
 
 def grade_easy(state: Dict[str, float]) -> float:
@@ -15,5 +15,5 @@ def grade_easy(state: Dict[str, float]) -> float:
     alive_bonus = 1.0 if str(state["status"]) != "bankrupt" else 0.0
 
     base = (0.35 * cash_runway) + (0.20 * quality) + (0.20 * satisfaction) + (0.25 * alive_bonus)
-    score = clamp01((0.40 * base) + 0.60)
+    score = clamp_strict((0.40 * base) + 0.60)
     return round(score, 6)
