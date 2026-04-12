@@ -1,6 +1,7 @@
 import json
 import os
 import argparse
+import random
 from typing import Dict, List, Tuple
 
 from openai import OpenAI
@@ -10,11 +11,13 @@ from env import StartupOperationsEnv
 from models import Action
 from tasks import grade_easy, grade_hard, grade_medium
 
-API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
+API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
-API_KEY = os.getenv("HF_TOKEN") or os.getenv("OPENAI_API_KEY")
+API_KEY = os.getenv("HF_TOKEN")
 MAX_STEPS = int(os.getenv("MAX_STEPS", "30"))
 SEED = int(os.getenv("SEED", "42"))
+VERBOSE_STEPS = os.getenv("VERBOSE_STEPS", "0") == "1"
+STEP_SAMPLE_EVERY = max(1, int(os.getenv("STEP_SAMPLE_EVERY", "5")))
 BENCHMARK = "startup-operations-openenv"
 SCORE_BANDS = {
     "easy": (0.8, 1.0),
@@ -28,11 +31,10 @@ def log_start(task: str, env: str, model: str) -> None:
 
 
 def log_step(step: int, action: str, reward: float, done: bool, error: str | None) -> None:
-    err = "" if error is None else error
-    print(
-        f"[STEP] step={step} action={action} reward={reward:.6f} done={str(done).lower()} error={err}",
-        flush=True,
-    )
+    base = f"[STEP] step={step} action={action} reward={reward:.6f} done={str(done).lower()}"
+    if error:
+        base = f"{base} error={error}"
+    print(base, flush=True)
 
 
 def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
@@ -43,14 +45,24 @@ def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> No
     )
 
 
-def print_steps_summary(step_list: List[Tuple[int, str, float]]) -> None:
+def print_steps_summary(step_list: List[Tuple[int, str, float]], compact: bool = True) -> None:
     print("\n=== STEP-BY-STEP BREAKDOWN ===", flush=True)
     print(f"{'Step':>4} | {'Action':>8} | {'Reward':>8} | Progress", flush=True)
     print("-" * 50, flush=True)
-    
+
     max_reward = max([r for _, _, r in step_list]) if step_list else 1.0
-    
-    for step, action, reward in step_list:
+
+    if compact:
+        # Keep output concise: first, sampled, and final steps.
+        selected = []
+        for index, item in enumerate(step_list):
+            step, _, _ = item
+            if index == 0 or index == len(step_list) - 1 or step % STEP_SAMPLE_EVERY == 0:
+                selected.append(item)
+    else:
+        selected = step_list
+
+    for step, action, reward in selected:
         bar_length = 15
         filled = int((reward / max_reward) * bar_length)
         bar = "=" * filled + "-" * (bar_length - filled)
@@ -101,14 +113,16 @@ def get_model_action(client: OpenAI, state: Dict[str, float], history: List[str]
             return heuristic_action(state)
         return action
     except Exception as exc:
-        print(f"[DEBUG] Model request failed: {exc}", flush=True)
+        if not getattr(get_model_action, "_error_logged", False):
+            print(f"[DEBUG] Model request failed (showing once): {exc}", flush=True)
+            setattr(get_model_action, "_error_logged", True)
         return heuristic_action(state)
 
 
-def run_task(task_name: str, grader, seed: int) -> Tuple[float, List[float], Dict[str, float]]:
+def run_task(task_name: str, grader, seed: int, api_key: str | None) -> Tuple[float, List[float], Dict[str, float]]:
     env = StartupOperationsEnv(max_days=MAX_STEPS, seed=seed)
-    if API_KEY:
-        client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+    if api_key:
+        client = OpenAI(base_url=API_BASE_URL, api_key=api_key)
     else:
         client = OpenAI(base_url=API_BASE_URL, api_key="missing")
 
@@ -127,7 +141,7 @@ def run_task(task_name: str, grader, seed: int) -> Tuple[float, List[float], Dic
             break
 
         state = env.state()
-        if API_KEY:
+        if api_key:
             action_text = get_model_action(client, state, history)
         else:
             action_text = heuristic_action(state)
@@ -140,7 +154,8 @@ def run_task(task_name: str, grader, seed: int) -> Tuple[float, List[float], Dic
             steps_info.append((step, action_text, reward_value))
             history.append(f"{step}:{action_text}:{reward_value:.4f}")
             steps_taken = step
-            log_step(step=step, action=action_text, reward=reward_value, done=done, error=None)
+            if VERBOSE_STEPS or done or step == 1 or step % STEP_SAMPLE_EVERY == 0:
+                log_step(step=step, action=action_text, reward=reward_value, done=done, error=None)
         except Exception as exc:
             log_step(step=step, action=action_text, reward=0.0, done=True, error=str(exc))
             done = True
@@ -149,47 +164,30 @@ def run_task(task_name: str, grader, seed: int) -> Tuple[float, List[float], Dic
     score = float(grader(final_state))
     success = classify_outcome(task_name, score) == "PASS"
     log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
-    print_steps_summary(steps_info)
+    print_steps_summary(steps_info, compact=not VERBOSE_STEPS)
     return score, rewards, final_state
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run startup environment inference for one level.")
-    parser.add_argument(
-        "--level",
-        required=False,
-        choices=["easy", "medium", "hard"],
-        help="Choose exactly one level to run.",
-    )
+    parser = argparse.ArgumentParser(description="Run startup environment inference for all levels.")
     parser.add_argument(
         "--seed",
         required=False,
         type=int,
-        help="Seed for deterministic run.",
+        help="Optional base seed. If omitted, random seeds are used.",
     )
     return parser.parse_args()
 
 
-def prompt_level() -> str:
-    valid = {"easy", "medium", "hard"}
-    while True:
-        value = input("Enter level (easy/medium/hard): ").strip().lower()
-        if value in valid:
-            return value
-        print("Invalid level. Please type: easy, medium, or hard.", flush=True)
-
-
-def prompt_seed() -> int:
-    while True:
-        value = input("Enter seed (integer): ").strip()
-        try:
-            return int(value)
-        except ValueError:
-            print("Invalid seed. Please enter a whole number.", flush=True)
+def resolve_seed(base_seed: int | None, offset: int) -> int:
+    if base_seed is None:
+        return random.SystemRandom().randint(1, 2_147_483_647)
+    return base_seed + offset
 
 
 def main() -> None:
     args = parse_args()
+    api_key = API_KEY
 
     graders = {
         "easy": grade_easy,
@@ -197,22 +195,23 @@ def main() -> None:
         "hard": grade_hard,
     }
 
-    level = args.level if args.level is not None else prompt_level()
-    seed = args.seed if args.seed is not None else prompt_seed()
-    score, _, final_state = run_task(level, graders[level], seed=seed)
-
-    result = {
-        "level": level,
-        "seed": seed,
-        "score": round(score, 6),
-        "final_state": final_state,
-    }
-
-    print_human_summary(level=level, score=score, final_state=final_state, seed=seed)
+    levels = ["easy", "medium", "hard"]
+    results = []
+    for index, level in enumerate(levels):
+        seed = resolve_seed(args.seed, index)
+        score, _, final_state = run_task(level, graders[level], seed=seed, api_key=api_key)
+        result = {
+            "level": level,
+            "seed": seed,
+            "score": round(score, 6),
+            "final_state": final_state,
+        }
+        results.append(result)
+        print_human_summary(level=level, score=score, final_state=final_state, seed=seed)
 
     if os.getenv("OUTPUT_JSON", "0") == "1":
         print("\n=== RAW JSON ===", flush=True)
-        print(json.dumps(result, indent=2), flush=True)
+        print(json.dumps({"runs": results}, indent=2), flush=True)
 
 
 if __name__ == "__main__":
